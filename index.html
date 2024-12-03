@@ -106,10 +106,106 @@
 	</div>
 
 	<script>
+		class ClipboardManager {
+			/**
+				* Copies text to the clipboard
+				* @param {string} text - The text to be copied
+				* @returns {Promise<boolean>} - Indicates if copy was successful
+				*/
+			async copy(text) {
+				try {
+					await navigator.clipboard.writeText(text);
+					return true;
+				} catch (err) {
+					console.error('Failed to copy text: ', err);
+					return false;
+				}
+			}
+			/**
+				* Reads text from the clipboard
+				* @returns {Promise<string>} - The text from the clipboard
+				*/
+			async paste() {
+				try {
+					const text = await navigator.clipboard.readText();
+					return text;
+				} catch (err) {
+					console.error('Failed to read clipboard: ', err);
+					return '';
+				}
+			}
+			/**
+				* Copies text to clipboard and optionally provides user feedback
+				* @param {string} text - The text to be copied
+				* @param {Object} [options] - Optional configuration
+				* @param {boolean} [options.notify=false] - Show a notification
+				* @param {Function} [options.onSuccess] - Callback on successful copy
+				* @param {Function} [options.onError] - Callback on copy failure
+				* @returns {Promise<boolean>} - Indicates if copy was successful
+				*/
+			async copyWithOptions(text, options = {}) {
+				const {
+					notify = false,
+						onSuccess = () => {},
+						onError = () => {}
+				} = options;
+				try {
+					await navigator.clipboard.writeText(text);
+					if (notify) {
+						this.showNotification('Copied to clipboard');
+					}
+					onSuccess(text);
+					return true;
+				} catch (err) {
+					console.error('Failed to copy text: ', err);
+					if (notify) {
+						this.showNotification('Copy failed', 'error');
+					}
+					onError(err);
+					return false;
+				}
+			}
+			/**
+				* Shows a simple notification (can be customized)
+				* @param {string} message - Notification message
+				* @param {string} [type='success'] - Notification type
+				*/
+			showNotification(message, type = 'success') {
+				// Basic implementation - can be replaced with more sophisticated notification system
+				const notification = document.createElement('div');
+				notification.textContent = message;
+				notification.style.position = 'fixed';
+				notification.style.top = '20px';
+				notification.style.right = '20px';
+				notification.style.padding = '10px';
+				notification.style.backgroundColor = type === 'success' ? 'green' : 'red';
+				notification.style.color = 'white';
+				notification.style.borderRadius = '5px';
+				document.body.appendChild(notification);
+				setTimeout(() => {
+					document.body.removeChild(notification);
+				}, 3000);
+			}
+		}
+		// Usage example
+		/*const clipboard = new ClipboardManager();
+		// Basic copy
+		clipboard.copy('Hello, world!');
+		// Copy with options
+		clipboard.copyWithOptions('Important text', {
+			notify: true,
+			onSuccess: (text) => console.log(`Copied: ${text}`),
+			onError: (err) => console.log('Copy failed', err)
+		});
+		// Paste
+		clipboard.paste().then(text => {
+			console.log('Clipboard contents:', text);
+		});*/
 		class LinkTreeManager {
 			constructor(rootElement) {
 				this.rootElement = rootElement;
-				const data = null; // this.loadFromLocalStorage();
+				this.clipboard = new ClipboardManager();
+				const data = this.loadFromLocalStorage();
 				if (data === null)
 					this.links = this.initializeDefaultStructure();
 				else
@@ -123,8 +219,7 @@
 					name: 'Root',
 					type: 'folder',
 					expanded: true,
-					children: [
-						{
+					children: [{
 							id: this.generateId(),
 							name: 'Scor-Ysq-L3',
 							type: 'link',
@@ -248,6 +343,19 @@
 				editBtn.onclick = () => this.startEditing(node.id);
 				actionsDiv.appendChild(editBtn);
 				// Delete button
+				// Inside the createNodeElement method, in the actions section
+				const copyBtn = document.createElement('button');
+				copyBtn.textContent = '📋';
+				copyBtn.onclick = () => this.copyNode(node.id);
+				actionsDiv.appendChild(copyBtn);
+				// For folders, add a paste button
+				if (node.type === 'folder') {
+					const pasteFolderBtn = document.createElement('button');
+					pasteFolderBtn.textContent = '📝';
+					pasteFolderBtn.classList.add('add-btn');
+					pasteFolderBtn.onclick = () => this.pasteNode(node.id);
+					actionsDiv.appendChild(pasteFolderBtn);
+				}
 				const deleteBtn = document.createElement('button');
 				deleteBtn.textContent = '🗑️';
 				deleteBtn.classList.add('delete-btn');
@@ -295,6 +403,41 @@
 					expanded: !node.expanded
 				}));
 				this.render();
+			}
+			// Add these methods to the LinkTreeManager class
+			copyNode(id) {
+				const node = this.findNodeById(id);
+				if (node) {
+					const nodeJson = JSON.stringify(node);
+					this.clipboard.copyWithOptions(nodeJson, {
+						notify: true,
+						onSuccess: () => console.log(`Copied ${node.name}`),
+						onError: () => console.error('Copy failed')
+					});
+				}
+			}
+			pasteNode(parentId) {
+				this.clipboard.paste().then(clipboardText => {
+					try {
+						const pastedNode = JSON.parse(clipboardText);
+						// Validate the pasted node is a valid link or folder
+						if (pastedNode && (pastedNode.type === 'link' || pastedNode.type === 'folder')) {
+							// Generate a new ID to prevent conflicts
+							pastedNode.id = this.generateId();
+							// Use function-based update to add child to parent
+							this.links = this.updateNodeById(parentId, node => ({
+								...node,
+								children: [...(node.children || []), pastedNode]
+							}));
+							this.render();
+							this.clipboard.showNotification(`Pasted ${pastedNode.name}`);
+						} else {
+							this.clipboard.showNotification('Invalid clipboard content', 'error');
+						}
+					} catch (error) {
+						this.clipboard.showNotification('Failed to parse clipboard', 'error');
+					}
+				});
 			}
 			startEditing(id) {
 				const node = this.findNodeById(id);
