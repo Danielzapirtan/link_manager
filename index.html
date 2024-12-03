@@ -109,7 +109,7 @@
 		class LinkTreeManager {
 			constructor(rootElement) {
 				this.rootElement = rootElement;
-				const data = this.loadFromLocalStorage();
+				const data = null; // this.loadFromLocalStorage();
 				if (data === null)
 					this.links = this.initializeDefaultStructure();
 				else
@@ -129,6 +129,20 @@
 							name: 'Scor-Ysq-L3',
 							type: 'link',
 							url: 'https://scor-ysq-l3.vercel.app/',
+							children: []
+						},
+						{
+							id: this.generateId(),
+							name: 'Ysq-L3',
+							type: 'link',
+							url: 'https://ysq-l3.vercel.app/',
+							children: []
+						},
+						{
+							id: this.generateId(),
+							name: 'Ysq-L3 Test',
+							type: 'link',
+							url: 'https://ysq-l3.vercel.app/?test',
 							children: []
 						},
 					]
