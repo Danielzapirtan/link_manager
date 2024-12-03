@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Link Tree Manager</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+			background-color: #f4f4f4;
+			line-height: 1.6;
+		}
+
+		.link-tree {
+			background-color: white;
+			border-radius: 8px;
+			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+			padding: 15px;
+		}
+
+		.node {
+			margin-left: 20px;
+			position: relative;
+		}
+
+		.node-header {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 5px 0;
+		}
+
+		.node-header button {
+			background: none;
+			border: none;
+			cursor: pointer;
+			padding: 5px;
+		}
+
+		.node-header .edit-input {
+			margin-right: 10px;
+			padding: 5px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+		}
+
+		.toggle-btn {
+			width: 20px;
+			text-align: center;
+			cursor: pointer;
+		}
+
+		.actions button {
+			margin-right: 5px;
+			background-color: #f0f0f0;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			padding: 3px 6px;
+			cursor: pointer;
+		}
+
+		.actions .delete-btn {
+			color: red;
+		}
+
+		.actions .add-btn {
+			color: green;
+		}
+
+		.link {
+			color: blue;
+			text-decoration: underline;
+		}
+
+		.instructions {
+			background-color: #e6f3ff;
+			border: 1px solid #b3d9ff;
+			border-radius: 5px;
+			padding: 10px;
+			margin-bottom: 15px;
+		}
+
+		.instructions h2 {
+			margin-top: 0;
+			color: #0066cc;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="app" class="link-tree">
+		<div class="instructions">
+			<h2>How to Use Link Tree Manager</h2>
+			<p>🖱️ Click the triangle (▶ or ▼) next to a folder to expand/collapse it.</p>
+			<p>📁 To add a folder: Click the folder icon (+) next to any existing folder.</p>
+			<p>🔗 To add a link: Click the link icon (+) next to a folder.</p>
+			<p>✏️ To edit: Click the pencil icon to modify a name or URL.</p>
+			<p>🗑️ To delete: Click the trash icon to remove a link or folder.</p>
+		</div>
+		<h1>Link Tree Manager</h1>
+		<div id="linkTree"></div>
+	</div>
+
+	<script>
+		class LinkTreeManager {
+			constructor(rootElement) {
+				this.rootElement = rootElement;
+				const data = this.loadFromLocalStorage();
+				if (data === null)
+					this.links = this.initializeDefaultStructure();
+				else
+					this.links = data;
+				this.saveToLocalStorage();
+				this.render();
+			}
+			initializeDefaultStructure() {
+				return [{
+					id: this.generateId(),
+					name: 'Root',
+					type: 'folder',
+					expanded: true,
+					children: [
+						{
+							id: this.generateId(),
+							name: 'Scor-Ysq-L3',
+							type: 'link',
+							url: 'https://scor-ysq-l3.vercel.app/',
+							children: []
+						},
+					]
+				}];
+			}
+			saveToLocalStorage() {
+				try {
+					localStorage.setItem('linkTreeData', JSON.stringify(this.links));
+					//alert(JSON.stringify(this.links));
+				} catch (error) {
+					//console.error('Error saving to localStorage:', error);
+				}
+			}
+			// New method to load from localStorage
+			loadFromLocalStorage() {
+				try {
+					const savedData = localStorage.getItem('linkTreeData');
+					return savedData ? JSON.parse(savedData) : null;
+				} catch (error) {
+					alert('Error loading from localStorage:', error);
+					return null;
+				}
+			}
+			generateId() {
+				return Math.random().toString(36).substr(2, 9);
+			}
+			findNodeById(id, nodes = this.links) {
+				for (const node of nodes) {
+					if (node.id === id) return node;
+					if (node.children) {
+						const found = this.findNodeById(id, node.children);
+						if (found) return found;
+					}
+				}
+				return null;
+			}
+			updateNodeById(id, updates, nodes = this.links) {
+				return nodes.map(node => {
+					// If the current node matches the id, apply updates
+					if (node.id === id) {
+						// If updates is a function, call it with the current node
+						const updateObj = typeof updates === 'function' ?
+							updates(node) :
+							updates;
+						return {
+							...node,
+							...updateObj
+						};
+					}
+					// If the node has children, recursively update
+					if (node.children) {
+						return {
+							...node,
+							children: this.updateNodeById(id, updates, node.children)
+						};
+					}
+					return node;
+				});
+			}
+			deleteNodeById(id, nodes = this.links) {
+				return nodes.filter(node => {
+					if (node.id === id) return false;
+					if (node.children) {
+						node.children = this.deleteNodeById(id, node.children);
+					}
+					return true;
+				});
+			}
+			createNodeElement(node, depth = 0) {
+				const nodeElement = document.createElement('div');
+				nodeElement.classList.add('node');
+				nodeElement.dataset.id = node.id;
+				nodeElement.dataset.depth = depth;
+				const headerDiv = document.createElement('div');
+				headerDiv.classList.add('node-header');
+				// Toggle button for folders
+				if (node.type === 'folder' && node.children.length > 0) {
+					const toggleBtn = document.createElement('button');
+					toggleBtn.classList.add('toggle-btn');
+					toggleBtn.textContent = node.expanded ? '▼' : '▶';
+					toggleBtn.onclick = () => this.toggleFolder(node.id);
+					headerDiv.appendChild(toggleBtn);
+				}
+				// Node name
+				const nameSpan = document.createElement('span');
+				nameSpan.textContent = node.name;
+				headerDiv.appendChild(nameSpan);
+				// Link open button
+				if (node.type === 'link' && node.url) {
+					const linkBtn = document.createElement('a');
+					linkBtn.href = node.url;
+					linkBtn.target = '_blank';
+					linkBtn.classList.add('link');
+					linkBtn.textContent = '(Open)';
+					headerDiv.appendChild(linkBtn);
+				}
+				// Actions container
+				const actionsDiv = document.createElement('div');
+				actionsDiv.classList.add('actions');
+				// Edit button
+				const editBtn = document.createElement('button');
+				editBtn.textContent = '✏️';
+				editBtn.onclick = () => this.startEditing(node.id);
+				actionsDiv.appendChild(editBtn);
+				// Delete button
+				const deleteBtn = document.createElement('button');
+				deleteBtn.textContent = '🗑️';
+				deleteBtn.classList.add('delete-btn');
+				deleteBtn.onclick = () => this.deleteNode(node.id);
+				actionsDiv.appendChild(deleteBtn);
+				// Add folder/link buttons for folders
+				if (node.type === 'folder') {
+					const addFolderBtn = document.createElement('button');
+					addFolderBtn.textContent = '📁';
+					addFolderBtn.classList.add('add-btn');
+					addFolderBtn.onclick = () => this.addFolder(node.id);
+					actionsDiv.appendChild(addFolderBtn);
+					const addLinkBtn = document.createElement('button');
+					addLinkBtn.textContent = '🔗';
+					addLinkBtn.classList.add('add-btn');
+					addLinkBtn.onclick = () => this.addLink(node.id);
+					actionsDiv.appendChild(addLinkBtn);
+				}
+				headerDiv.appendChild(actionsDiv);
+				nodeElement.appendChild(headerDiv);
+				// Render children if folder and expanded
+				if (node.type === 'folder' && node.expanded) {
+					const childrenContainer = document.createElement('div');
+					node.children.forEach(child => {
+						const childElement = this.createNodeElement(child, depth + 1);
+						childrenContainer.appendChild(childElement);
+					});
+					nodeElement.appendChild(childrenContainer);
+				}
+				return nodeElement;
+			}
+			render() {
+				const treeContainer = document.getElementById('linkTree');
+				treeContainer.innerHTML = '';
+				this.links.forEach(rootNode => {
+					const rootElement = this.createNodeElement(rootNode);
+					treeContainer.appendChild(rootElement);
+				});
+				this.saveToLocalStorage();
+			}
+			toggleFolder(id) {
+				// Modify the expand/collapse functionality
+				this.links = this.updateNodeById(id, node => ({
+					...node,
+					expanded: !node.expanded
+				}));
+				this.render();
+			}
+			startEditing(id) {
+				const node = this.findNodeById(id);
+				const nodeElement = document.querySelector(`.node[data-id="${id}"] .node-header`);
+				// Clear existing header
+				nodeElement.innerHTML = '';
+				// Create input for name
+				const nameInput = document.createElement('input');
+				nameInput.value = node.name;
+				nameInput.classList.add('edit-input');
+				nodeElement.appendChild(nameInput);
+				// Create URL input for links
+				if (node.type === 'link') {
+					const urlInput = document.createElement('input');
+					urlInput.value = node.url || '';
+					urlInput.placeholder = 'URL';
+					urlInput.classList.add('edit-input');
+					nodeElement.appendChild(urlInput);
+					// Save button
+					const saveBtn = document.createElement('button');
+					saveBtn.textContent = 'Save';
+					saveBtn.onclick = () => {
+						this.links = this.updateNodeById(id, {
+							name: nameInput.value,
+							url: urlInput.value
+						});
+						this.render();
+					};
+					nodeElement.appendChild(saveBtn);
+				} else {
+					// Save button for folders
+					const saveBtn = document.createElement('button');
+					saveBtn.textContent = 'Save';
+					saveBtn.onclick = () => {
+						this.links = this.updateNodeById(id, {
+							name: nameInput.value
+						});
+						this.render();
+					};
+					nodeElement.appendChild(saveBtn);
+				}
+			}
+			deleteNode(id) {
+				this.links = this.deleteNodeById(id);
+				this.render();
+			}
+			addFolder(parentId) {
+				const newFolder = {
+					id: this.generateId(),
+					name: 'New Folder',
+					type: 'folder',
+					expanded: true,
+					children: []
+				};
+				// Use function-based update to correctly add child to parent
+				this.links = this.updateNodeById(parentId, node => ({
+					...node,
+					children: [...(node.children || []), newFolder]
+				}));
+				this.render();
+			}
+			addLink(parentId) {
+				const newLink = {
+					id: this.generateId(),
+					name: 'New Link',
+					type: 'link',
+					url: 'https://',
+					children: []
+				};
+				// Use function-based update to correctly add child to parent
+				this.links = this.updateNodeById(parentId, node => ({
+					...node,
+					children: [...(node.children || []), newLink]
+				}));
+				this.render();
+			}
+		}
+		// Initialize the app
+		document.addEventListener('DOMContentLoaded', () => {
+			new LinkTreeManager(document.getElementById('linkTree'));
+		});
+	</script>
+</body>
+
+</html>
