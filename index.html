@@ -206,10 +206,10 @@
 				this.rootElement = rootElement;
 				this.clipboard = new ClipboardManager();
 				const data = this.loadFromLocalStorage();
-				//if (data === null)
+				if (data === null)
 					this.links = this.initializeDefaultStructure();
-				//else
-					//this.links = data;
+				else
+					this.links = data;
 				this.saveToLocalStorage();
 				this.render();
 			}
