@@ -1,560 +1,231 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="ro">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Link Tree Manager</title>
-	<style>
-		body {
-			font-family: Arial, sans-serif;
-			max-width: 800px;
-			margin: 0 auto;
-			padding: 20px;
-			background-color: #f4f4f4;
-			line-height: 1.6;
-		}
-
-		.link-tree {
-			background-color: white;
-			border-radius: 8px;
-			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-			padding: 15px;
-		}
-
-		.node {
-			margin-left: 20px;
-			position: relative;
-		}
-
-		.node-header {
-			display: flex;
-			align-items: center;
-			gap: 10px;
-			padding: 5px 0;
-		}
-
-		.node-header button {
-			background: none;
-			border: none;
-			cursor: pointer;
-			padding: 5px;
-		}
-
-		.node-header .edit-input {
-			margin-right: 10px;
-			padding: 5px;
-			border: 1px solid #ddd;
-			border-radius: 4px;
-		}
-
-		.toggle-btn {
-			width: 20px;
-			text-align: center;
-			cursor: pointer;
-		}
-
-		.actions button {
-			margin-right: 5px;
-			background-color: #f0f0f0;
-			border: 1px solid #ddd;
-			border-radius: 4px;
-			padding: 3px 6px;
-			cursor: pointer;
-		}
-
-		.actions .delete-btn {
-			color: red;
-		}
-
-		.actions .add-btn {
-			color: green;
-		}
-
-		.link {
-			color: blue;
-			text-decoration: underline;
-		}
-
-		.instructions {
-			background-color: #e6f3ff;
-			border: 1px solid #b3d9ff;
-			border-radius: 5px;
-			padding: 10px;
-			margin-bottom: 15px;
-		}
-
-		.instructions h2 {
-			margin-top: 0;
-			color: #0066cc;
-		}
-	</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Link-uri</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+            background-color: #f0f0f0;
+        }
+        .card {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .delete-btn {
+            background: #dc3545;
+            float: right;
+        }
+        .edit-btn {
+            background: #28a745;
+            float: right;
+            margin-right: 10px;
+        }
+        .link-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .link-details {
+            flex-grow: 1;
+        }
+        .link-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .category-tag {
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
 </head>
-
 <body>
-	<div id="app" class="link-tree">
-		<div class="instructions">
-			<h2>How to Use Link Tree Manager</h2>
-			<p>🖱️ Click the triangle (▶ or ▼) next to a folder to expand/collapse it.</p>
-			<p>📁 To add a folder: Click the folder icon (📁) next to any existing folder.</p>
-			<p>🔗 To add a link: Click the link icon (🔗) next to a folder.</p>
-			<p>✏️ To edit: Click the pencil icon to modify a name or URL.</p>
-			<p>🗑️ To delete: Click the trash icon to remove a link or folder.</p>
-		</div>
-		<h1>Link Tree Manager</h1>
-		<div id="linkTree"></div>
-	</div>
+    <div class="card">
+        <h2>Adaugă Link Nou</h2>
+        <form id="addLinkForm">
+            <div class="form-group">
+                <input type="url" id="url" placeholder="URL" required>
+            </div>
+            <div class="form-group">
+                <input type="text" id="title" placeholder="Titlu">
+            </div>
+            <div class="form-group">
+                <input type="text" id="category" placeholder="Categorie">
+            </div>
+            <button type="submit">Adaugă Link</button>
+        </form>
+    </div>
 
-	<script>
-		class ClipboardManager {
-			/**
-				* Copies text to the clipboard
-				* @param {string} text - The text to be copied
-				* @returns {Promise<boolean>} - Indicates if copy was successful
-				*/
-			async copy(text) {
-				try {
-					await navigator.clipboard.writeText(text);
-					return true;
-				} catch (err) {
-					console.error('Failed to copy text: ', err);
-					return false;
-				}
-			}
-			/**
-				* Reads text from the clipboard
-				* @returns {Promise<string>} - The text from the clipboard
-				*/
-			async paste() {
-				try {
-					const text = await navigator.clipboard.readText();
-					return text;
-				} catch (err) {
-					console.error('Failed to read clipboard: ', err);
-					return '';
-				}
-			}
-			/**
-				* Copies text to clipboard and optionally provides user feedback
-				* @param {string} text - The text to be copied
-				* @param {Object} [options] - Optional configuration
-				* @param {boolean} [options.notify=false] - Show a notification
-				* @param {Function} [options.onSuccess] - Callback on successful copy
-				* @param {Function} [options.onError] - Callback on copy failure
-				* @returns {Promise<boolean>} - Indicates if copy was successful
-				*/
-			async copyWithOptions(text, options = {}) {
-				const {
-					notify = false,
-						onSuccess = () => {},
-						onError = () => {}
-				} = options;
-				try {
-					await navigator.clipboard.writeText(text);
-					if (notify) {
-						this.showNotification('Copied to clipboard');
-					}
-					onSuccess(text);
-					return true;
-				} catch (err) {
-					console.error('Failed to copy text: ', err);
-					if (notify) {
-						this.showNotification('Copy failed', 'error');
-					}
-					onError(err);
-					return false;
-				}
-			}
-			/**
-				* Shows a simple notification (can be customized)
-				* @param {string} message - Notification message
-				* @param {string} [type='success'] - Notification type
-				*/
-			showNotification(message, type = 'success') {
-				// Basic implementation - can be replaced with more sophisticated notification system
-				const notification = document.createElement('div');
-				notification.textContent = message;
-				notification.style.position = 'fixed';
-				notification.style.top = '20px';
-				notification.style.right = '20px';
-				notification.style.padding = '10px';
-				notification.style.backgroundColor = type === 'success' ? 'green' : 'red';
-				notification.style.color = 'white';
-				notification.style.borderRadius = '5px';
-				document.body.appendChild(notification);
-				setTimeout(() => {
-					document.body.removeChild(notification);
-				}, 3000);
-			}
-		}
-		// Usage example
-		/*const clipboard = new ClipboardManager();
-		// Basic copy
-		clipboard.copy('Hello, world!');
-		// Copy with options
-		clipboard.copyWithOptions('Important text', {
-			notify: true,
-			onSuccess: (text) => console.log(`Copied: ${text}`),
-			onError: (err) => console.log('Copy failed', err)
-		});
-		// Paste
-		clipboard.paste().then(text => {
-			console.log('Clipboard contents:', text);
-		});*/
-		class LinkTreeManager {
-			constructor(rootElement) {
-				this.rootElement = rootElement;
-				this.clipboard = new ClipboardManager();
-				const data = this.loadFromLocalStorage();
-				if (data === null)
-					this.links = this.initializeDefaultStructure();
-				else
-					this.links = data;
-				this.saveToLocalStorage();
-				this.render();
-			}
-			initializeDefaultStructure() {
-				return [{
-					id: this.generateId(),
-					name: 'Root',
-					type: 'folder',
-					expanded: true,
-					children: [{
-							id: this.generateId(),
-							name: 'Scor-Ysq-L3',
-							type: 'link',
-							url: 'https://scor-ysq-l3.vercel.app/',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Scor-Ysq-L3 Test',
-							type: 'link',
-							url: 'https://scor-ysq-l3.vercel.app/?test',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Ysq-L3',
-							type: 'link',
-							url: 'https://ysq-l3.vercel.app/',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Ysq-L3 Test',
-							type: 'link',
-							url: 'https://ysq-l3.vercel.app/?test',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Smi',
-							type: 'link',
-							url: 'https://smi-nu.vercel.app/',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Smi Test',
-							type: 'link',
-							url: 'https://smi-nu.vercel.app/?test',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Scor-Smi',
-							type: 'link',
-							url: 'https://scor-smi.vercel.app/',
-							children: []
-						},
-						{
-							id: this.generateId(),
-							name: 'Scor-Smi Test',
-							type: 'link',
-							url: 'https://scor-smi.vercel.app/?test',
-							children: []
-						},
-					]
-				}];
-			}
-			saveToLocalStorage() {
-				try {
-					localStorage.setItem('linkTreeData', JSON.stringify(this.links));
-					//alert(JSON.stringify(this.links));
-				} catch (error) {
-					//console.error('Error saving to localStorage:', error);
-				}
-			}
-			// New method to load from localStorage
-			loadFromLocalStorage() {
-				try {
-					const savedData = localStorage.getItem('linkTreeData');
-					return savedData ? JSON.parse(savedData) : null;
-				} catch (error) {
-					alert('Error loading from localStorage:', error);
-					return null;
-				}
-			}
-			generateId() {
-				return Math.random().toString(36).substr(2, 9);
-			}
-			findNodeById(id, nodes = this.links) {
-				for (const node of nodes) {
-					if (node.id === id) return node;
-					if (node.children) {
-						const found = this.findNodeById(id, node.children);
-						if (found) return found;
-					}
-				}
-				return null;
-			}
-			updateNodeById(id, updates, nodes = this.links) {
-				return nodes.map(node => {
-					// If the current node matches the id, apply updates
-					if (node.id === id) {
-						// If updates is a function, call it with the current node
-						const updateObj = typeof updates === 'function' ?
-							updates(node) :
-							updates;
-						return {
-							...node,
-							...updateObj
-						};
-					}
-					// If the node has children, recursively update
-					if (node.children) {
-						return {
-							...node,
-							children: this.updateNodeById(id, updates, node.children)
-						};
-					}
-					return node;
-				});
-			}
-			deleteNodeById(id, nodes = this.links) {
-				return nodes.filter(node => {
-					if (node.id === id) return false;
-					if (node.children) {
-						node.children = this.deleteNodeById(id, node.children);
-					}
-					return true;
-				});
-			}
-			createNodeElement(node, depth = 0) {
-				const nodeElement = document.createElement('div');
-				nodeElement.classList.add('node');
-				nodeElement.dataset.id = node.id;
-				nodeElement.dataset.depth = depth;
-				const headerDiv = document.createElement('div');
-				headerDiv.classList.add('node-header');
-				// Toggle button for folders
-				if (node.type === 'folder' && node.children.length > 0) {
-					const toggleBtn = document.createElement('button');
-					toggleBtn.classList.add('toggle-btn');
-					toggleBtn.textContent = node.expanded ? '▼' : '▶';
-					toggleBtn.onclick = () => this.toggleFolder(node.id);
-					headerDiv.appendChild(toggleBtn);
-				}
-				// Node name
-				const nameSpan = document.createElement('span');
-				nameSpan.textContent = node.name;
-				headerDiv.appendChild(nameSpan);
-				// Link open button
-				if (node.type === 'link' && node.url) {
-					const linkBtn = document.createElement('a');
-					linkBtn.href = node.url;
-					linkBtn.target = '_blank';
-					linkBtn.classList.add('link');
-					linkBtn.textContent = '(Open)';
-					headerDiv.appendChild(linkBtn);
-				}
-				// Actions container
-				const actionsDiv = document.createElement('div');
-				actionsDiv.classList.add('actions');
-				// Edit button
-				const editBtn = document.createElement('button');
-				editBtn.textContent = '✏️';
-				editBtn.onclick = () => this.startEditing(node.id);
-				actionsDiv.appendChild(editBtn);
-				// Delete button
-				// Inside the createNodeElement method, in the actions section
-				const copyBtn = document.createElement('button');
-				copyBtn.textContent = '📋';
-				copyBtn.onclick = () => this.copyNode(node.id);
-				actionsDiv.appendChild(copyBtn);
-				// For folders, add a paste button
-				if (node.type === 'folder') {
-					const pasteFolderBtn = document.createElement('button');
-					pasteFolderBtn.textContent = '📝';
-					pasteFolderBtn.classList.add('add-btn');
-					pasteFolderBtn.onclick = () => this.pasteNode(node.id);
-					actionsDiv.appendChild(pasteFolderBtn);
-				}
-				const deleteBtn = document.createElement('button');
-				deleteBtn.textContent = '🗑️';
-				deleteBtn.classList.add('delete-btn');
-				deleteBtn.onclick = () => this.deleteNode(node.id);
-				actionsDiv.appendChild(deleteBtn);
-				// Add folder/link buttons for folders
-				if (node.type === 'folder') {
-					const addFolderBtn = document.createElement('button');
-					addFolderBtn.textContent = '📁';
-					addFolderBtn.classList.add('add-btn');
-					addFolderBtn.onclick = () => this.addFolder(node.id);
-					actionsDiv.appendChild(addFolderBtn);
-					const addLinkBtn = document.createElement('button');
-					addLinkBtn.textContent = '🔗';
-					addLinkBtn.classList.add('add-btn');
-					addLinkBtn.onclick = () => this.addLink(node.id);
-					actionsDiv.appendChild(addLinkBtn);
-				}
-				headerDiv.appendChild(actionsDiv);
-				nodeElement.appendChild(headerDiv);
-				// Render children if folder and expanded
-				if (node.type === 'folder' && node.expanded) {
-					const childrenContainer = document.createElement('div');
-					node.children.forEach(child => {
-						const childElement = this.createNodeElement(child, depth + 1);
-						childrenContainer.appendChild(childElement);
-					});
-					nodeElement.appendChild(childrenContainer);
-				}
-				return nodeElement;
-			}
-			render() {
-				const treeContainer = document.getElementById('linkTree');
-				treeContainer.innerHTML = '';
-				this.links.forEach(rootNode => {
-					const rootElement = this.createNodeElement(rootNode);
-					treeContainer.appendChild(rootElement);
-				});
-				this.saveToLocalStorage();
-			}
-			toggleFolder(id) {
-				// Modify the expand/collapse functionality
-				this.links = this.updateNodeById(id, node => ({
-					...node,
-					expanded: !node.expanded
-				}));
-				this.render();
-			}
-			// Add these methods to the LinkTreeManager class
-			copyNode(id) {
-				const node = this.findNodeById(id);
-				if (node) {
-					const nodeJson = JSON.stringify(node);
-					this.clipboard.copyWithOptions(nodeJson, {
-						notify: true,
-						onSuccess: () => console.log(`Copied ${node.name}`),
-						onError: () => console.error('Copy failed')
-					});
-				}
-			}
-			pasteNode(parentId) {
-				this.clipboard.paste().then(clipboardText => {
-					try {
-						const pastedNode = JSON.parse(clipboardText);
-						// Validate the pasted node is a valid link or folder
-						if (pastedNode && (pastedNode.type === 'link' || pastedNode.type === 'folder')) {
-							// Generate a new ID to prevent conflicts
-							pastedNode.id = this.generateId();
-							// Use function-based update to add child to parent
-							this.links = this.updateNodeById(parentId, node => ({
-								...node,
-								children: [...(node.children || []), pastedNode]
-							}));
-							this.render();
-							this.clipboard.showNotification(`Pasted ${pastedNode.name}`);
-						} else {
-							this.clipboard.showNotification('Invalid clipboard content', 'error');
-						}
-					} catch (error) {
-						this.clipboard.showNotification('Failed to parse clipboard', 'error');
-					}
-				});
-			}
-			startEditing(id) {
-				const node = this.findNodeById(id);
-				const nodeElement = document.querySelector(`.node[data-id="${id}"] .node-header`);
-				// Clear existing header
-				nodeElement.innerHTML = '';
-				// Create input for name
-				const nameInput = document.createElement('input');
-				nameInput.value = node.name;
-				nameInput.classList.add('edit-input');
-				nodeElement.appendChild(nameInput);
-				// Create URL input for links
-				if (node.type === 'link') {
-					const urlInput = document.createElement('input');
-					urlInput.value = node.url || '';
-					urlInput.placeholder = 'URL';
-					urlInput.classList.add('edit-input');
-					nodeElement.appendChild(urlInput);
-					// Save button
-					const saveBtn = document.createElement('button');
-					saveBtn.textContent = 'Save';
-					saveBtn.onclick = () => {
-						this.links = this.updateNodeById(id, {
-							name: nameInput.value,
-							url: urlInput.value
-						});
-						this.render();
-					};
-					nodeElement.appendChild(saveBtn);
-				} else {
-					// Save button for folders
-					const saveBtn = document.createElement('button');
-					saveBtn.textContent = 'Save';
-					saveBtn.onclick = () => {
-						this.links = this.updateNodeById(id, {
-							name: nameInput.value
-						});
-						this.render();
-					};
-					nodeElement.appendChild(saveBtn);
-				}
-			}
-			deleteNode(id) {
-				this.links = this.deleteNodeById(id);
-				this.render();
-			}
-			addFolder(parentId) {
-				const newFolder = {
-					id: this.generateId(),
-					name: 'New Folder',
-					type: 'folder',
-					expanded: true,
-					children: []
-				};
-				// Use function-based update to correctly add child to parent
-				this.links = this.updateNodeById(parentId, node => ({
-					...node,
-					children: [...(node.children || []), newFolder]
-				}));
-				this.render();
-			}
-			addLink(parentId) {
-				const newLink = {
-					id: this.generateId(),
-					name: 'New Link',
-					type: 'link',
-					url: 'https://',
-					children: []
-				};
-				// Use function-based update to correctly add child to parent
-				this.links = this.updateNodeById(parentId, node => ({
-					...node,
-					children: [...(node.children || []), newLink]
-				}));
-				this.render();
-			}
-		}
-		// Initialize the app
-		document.addEventListener('DOMContentLoaded', () => {
-			new LinkTreeManager(document.getElementById('linkTree'));
-		});
-	</script>
+    <div class="card">
+        <h2>Link-urile Mele</h2>
+        <div class="form-group">
+            <select id="categoryFilter">
+                <option value="">Toate categoriile</option>
+            </select>
+        </div>
+        <div id="linksList"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        // Funcție pentru încărcarea link-urilor
+        async function loadLinks(category = '') {
+            try {
+                const url = category 
+                    ? `${API_URL}/links?category=${category}`
+                    : `${API_URL}/links`;
+                const response = await fetch(url);
+                const links = await response.json();
+                displayLinks(links);
+                updateCategoryFilter(links);
+            } catch (error) {
+                console.error('Eroare la încărcarea link-urilor:', error);
+            }
+        }
+
+        // Funcție pentru afișarea link-urilor
+        function displayLinks(links) {
+            const linksList = document.getElementById('linksList');
+            linksList.innerHTML = '';
+            
+            links.forEach(link => {
+                const div = document.createElement('div');
+                div.className = 'card link-item';
+                div.innerHTML = `
+                    <div class="link-details">
+                        <h3>${link.title || link.url}</h3>
+                        <a href="${link.url}" target="_blank">${link.url}</a>
+                        ${link.category ? `<div class="category-tag">${link.category}</div>` : ''}
+                    </div>
+                    <div class="link-actions">
+                        <button onclick="editLink(${link.id})" class="edit-btn">Editează</button>
+                        <button onclick="deleteLink(${link.id})" class="delete-btn">Șterge</button>
+                    </div>
+                `;
+                linksList.appendChild(div);
+            });
+        }
+
+        // Funcție pentru actualizarea filtrului de categorii
+        function updateCategoryFilter(links) {
+            const categories = [...new Set(links.map(link => link.category).filter(Boolean))];
+            const filter = document.getElementById('categoryFilter');
+            
+            // Păstrează opțiunea "Toate categoriile" și adaugă categoriile unice
+            const currentOptions = [...filter.options].map(opt => opt.value);
+            categories.forEach(category => {
+                if (!currentOptions.includes(category)) {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    filter.appendChild(option);
+                }
+            });
+        }
+
+        // Funcție pentru ștergerea unui link
+        async function deleteLink(id) {
+            if (confirm('Sigur doriți să ștergeți acest link?')) {
+                try {
+                    await fetch(`${API_URL}/links/${id}`, {
+                        method: 'DELETE'
+                    });
+                    loadLinks(document.getElementById('categoryFilter').value);
+                } catch (error) {
+                    console.error('Eroare la ștergerea link-ului:', error);
+                }
+            }
+        }
+
+        // Funcție pentru editarea unui link
+        async function editLink(id) {
+            const newUrl = prompt('Introduceți noul URL:');
+            if (newUrl) {
+                const newTitle = prompt('Introduceți noul titlu:');
+                const newCategory = prompt('Introduceți noua categorie:');
+                
+                try {
+                    await fetch(`${API_URL}/links/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            url: newUrl,
+                            title: newTitle,
+                            category: newCategory
+                        })
+                    });
+                    loadLinks(document.getElementById('categoryFilter').value);
+                } catch (error) {
+                    console.error('Eroare la actualizarea link-ului:', error);
+                }
+            }
+        }
+
+        // Event listeners
+        document.getElementById('addLinkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = document.getElementById('url').value;
+            const title = document.getElementById('title').value;
+            const category = document.getElementById('category').value;
+            
+            try {
+                await fetch(`${API_URL}/links`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url, title, category })
+                });
+                
+                // Resetare formular și reîncărcare link-uri
+                e.target.reset();
+                loadLinks(document.getElementById('categoryFilter').value);
+            } catch (error) {
+                console.error('Eroare la adăugarea link-ului:', error);
+            }
+        });
+
+        document.getElementById('categoryFilter').addEventListener('change', (e) => {
+            loadLinks(e.target.value);
+        });
+
+        // Încărcare inițială
+        loadLinks();
+    </script>
 </body>
-
 </html>
