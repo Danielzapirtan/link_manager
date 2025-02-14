@@ -1,231 +1,29 @@
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Link-uri</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 15px;
-            background-color: #f0f0f0;
-        }
-        .card {
-            background: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 10px;
-        }
-        input, select {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-        .delete-btn {
-            background: #dc3545;
-            float: right;
-        }
-        .edit-btn {
-            background: #28a745;
-            float: right;
-            margin-right: 10px;
-        }
-        .link-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .link-details {
-            flex-grow: 1;
-        }
-        .link-actions {
-            display: flex;
-            gap: 10px;
-        }
-        .category-tag {
-            background: #e9ecef;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            color: #666;
-        }
-    </style>
+    <title>Link Manager</title>
 </head>
 <body>
-    <div class="card">
-        <h2>Adaugă Link Nou</h2>
-        <form id="addLinkForm">
-            <div class="form-group">
-                <input type="url" id="url" placeholder="URL" required>
-            </div>
-            <div class="form-group">
-                <input type="text" id="title" placeholder="Titlu">
-            </div>
-            <div class="form-group">
-                <input type="text" id="category" placeholder="Categorie">
-            </div>
-            <button type="submit">Adaugă Link</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <h2>Link-urile Mele</h2>
-        <div class="form-group">
-            <select id="categoryFilter">
-                <option value="">Toate categoriile</option>
-            </select>
-        </div>
-        <div id="linksList"></div>
-    </div>
-
-    <script>
-        const API_URL = 'http://localhost:5040/api';
-
-        // Funcție pentru încărcarea link-urilor
-        async function loadLinks(category = '') {
-            try {
-                const url = category 
-                    ? `${API_URL}/links?category=${category}`
-                    : `${API_URL}/links`;
-                const response = await fetch(url);
-                const links = await response.json();
-                displayLinks(links);
-                updateCategoryFilter(links);
-            } catch (error) {
-                console.error('Eroare la încărcarea link-urilor:', error);
-            }
-        }
-
-        // Funcție pentru afișarea link-urilor
-        function displayLinks(links) {
-            const linksList = document.getElementById('linksList');
-            linksList.innerHTML = '';
-            
-            links.forEach(link => {
-                const div = document.createElement('div');
-                div.className = 'card link-item';
-                div.innerHTML = `
-                    <div class="link-details">
-                        <h3>${link.title || link.url}</h3>
-                        <a href="${link.url}" target="_blank">${link.url}</a>
-                        ${link.category ? `<div class="category-tag">${link.category}</div>` : ''}
-                    </div>
-                    <div class="link-actions">
-                        <button onclick="editLink(${link.id})" class="edit-btn">Editează</button>
-                        <button onclick="deleteLink(${link.id})" class="delete-btn">Șterge</button>
-                    </div>
-                `;
-                linksList.appendChild(div);
-            });
-        }
-
-        // Funcție pentru actualizarea filtrului de categorii
-        function updateCategoryFilter(links) {
-            const categories = [...new Set(links.map(link => link.category).filter(Boolean))];
-            const filter = document.getElementById('categoryFilter');
-            
-            // Păstrează opțiunea "Toate categoriile" și adaugă categoriile unice
-            const currentOptions = [...filter.options].map(opt => opt.value);
-            categories.forEach(category => {
-                if (!currentOptions.includes(category)) {
-                    const option = document.createElement('option');
-                    option.value = category;
-                    option.textContent = category;
-                    filter.appendChild(option);
-                }
-            });
-        }
-
-        // Funcție pentru ștergerea unui link
-        async function deleteLink(id) {
-            if (confirm('Sigur doriți să ștergeți acest link?')) {
-                try {
-                    await fetch(`${API_URL}/links/${id}`, {
-                        method: 'DELETE'
-                    });
-                    loadLinks(document.getElementById('categoryFilter').value);
-                } catch (error) {
-                    console.error('Eroare la ștergerea link-ului:', error);
-                }
-            }
-        }
-
-        // Funcție pentru editarea unui link
-        async function editLink(id) {
-            const newUrl = prompt('Introduceți noul URL:');
-            if (newUrl) {
-                const newTitle = prompt('Introduceți noul titlu:');
-                const newCategory = prompt('Introduceți noua categorie:');
-                
-                try {
-                    await fetch(`${API_URL}/links/${id}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            url: newUrl,
-                            title: newTitle,
-                            category: newCategory
-                        })
-                    });
-                    loadLinks(document.getElementById('categoryFilter').value);
-                } catch (error) {
-                    console.error('Eroare la actualizarea link-ului:', error);
-                }
-            }
-        }
-
-        // Event listeners
-        document.getElementById('addLinkForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const url = document.getElementById('url').value;
-            const title = document.getElementById('title').value;
-            const category = document.getElementById('category').value;
-            
-            try {
-                await fetch(`${API_URL}/links`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url, title, category })
-                });
-                
-                // Resetare formular și reîncărcare link-uri
-                e.target.reset();
-                loadLinks(document.getElementById('categoryFilter').value);
-            } catch (error) {
-                console.error('Eroare la adăugarea link-ului:', error);
-            }
-        });
-
-        document.getElementById('categoryFilter').addEventListener('change', (e) => {
-            loadLinks(e.target.value);
-        });
-
-        // Încărcare inițială
-        loadLinks();
-    </script>
+    <h1>Link Manager</h1>
+    <a href="{{ url_for('add_link') }}">Add New Link</a>
+    <ul>
+        {% for link in links %}
+            <li>
+                <strong>{{ link[1] }}</strong>: <a href="{{ link[2] }}" target="_blank">{{ link[2] }}</a>
+                <a href="{{ url_for('delete_link', id=link[0]) }}" style="color: red;">Delete</a>
+            </li>
+        {% endfor %}
+    </ul>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
 </body>
 </html>
